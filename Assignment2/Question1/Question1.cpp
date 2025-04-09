@@ -1,0 +1,216 @@
+#include <GL/glut.h>
+#include <iostream>
+#include <cmath>
+#include <string>
+#include <sstream>
+
+
+const int WINDOW_WIDTH = 800;
+const int WINDOW_HEIGHT = 600;
+
+const float SCALE = 60.0f;
+
+// Circle parameters
+const float RADIUS_CM = 3.0f;    //radius
+const float CENTER_X_CM = 0.0f;
+const float CENTER_Y_CM = 2.0f;
+
+// Grid parameters
+const int GRID_SIZE = 10;     // Grid extends from -10 to +10 in both directions
+
+// Function to render text
+void renderText(float x, float y, const char* text) {
+    glRasterPos2f(x, y);
+    for (const char* c = text; *c != '\0'; c++) {
+        glutBitmapCharacter(GLUT_BITMAP_8_BY_13, *c);
+    }
+}
+
+// Midpoint circle drawing algorithm
+void plotCirclePoints(int x, int y)
+{
+    // Convert from algorithm coordinates to OpenGL coordinates
+    float centerX = CENTER_X_CM * SCALE;
+    float centerY = CENTER_Y_CM * SCALE;
+
+    // Plot the 8 symmetry points
+    glVertex2f(centerX + x, centerY + y);
+    glVertex2f(centerX + y, centerY + x);
+    glVertex2f(centerX + y, centerY - x);
+    glVertex2f(centerX + x, centerY - y);
+    glVertex2f(centerX - x, centerY - y);
+    glVertex2f(centerX - y, centerY - x);
+    glVertex2f(centerX - y, centerY + x);
+    glVertex2f(centerX - x, centerY + y);
+}
+
+void plotCirclePixels(float radius_cm)
+{
+    int radius = radius_cm * SCALE;  // Convert to pixels
+
+    int x = 0;
+    int y = radius;
+    int p = 1 - radius;  // Initial decision parameter
+
+    // Plot first set of points
+    plotCirclePoints(x, y);
+
+    // Midpoint Circle Algorithm
+    while (x < y)
+    {
+        x++;
+        if (p < 0)
+        {
+            p += 2 * x + 1;
+        }
+        else
+        {
+            y--;
+            p += 2 * (x - y) + 1;
+        }
+        plotCirclePoints(x, y);
+    }
+}
+
+void drawGrid()
+{
+    glBegin(GL_LINES);
+    glColor3f(0.3f, 0.3f, 0.3f);
+
+    // Draw vertical grid lines
+    for (int i = -GRID_SIZE; i <= GRID_SIZE; i++) {
+        glVertex2f(i * SCALE, -GRID_SIZE * SCALE);
+        glVertex2f(i * SCALE, GRID_SIZE * SCALE);
+    }
+
+    // Draw horizontal grid lines
+    for (int i = -GRID_SIZE; i <= GRID_SIZE; i++) {
+        glVertex2f(-GRID_SIZE * SCALE, i * SCALE);
+        glVertex2f(GRID_SIZE * SCALE, i * SCALE);
+    }
+    glEnd();
+}
+
+void drawAxes()
+{
+    // Draw coordinate axes
+    glLineWidth(2.0f);
+    glBegin(GL_LINES);
+    // X-axis
+    glColor3f(1.0f, 0.0f, 0.0f);
+    glVertex2f(-GRID_SIZE * SCALE, 0.0f);
+    glVertex2f(GRID_SIZE * SCALE, 0.0f);
+
+    // Y-axis
+    glColor3f(0.0f, 1.0f, 0.0f);
+    glVertex2f(0.0f, -GRID_SIZE * SCALE);
+    glVertex2f(0.0f, GRID_SIZE * SCALE);
+    glEnd();
+    glLineWidth(1.0f);
+}
+
+void labelAxes()
+{
+    std::stringstream ss;
+
+    // Label X-axis
+    glColor3f(1.0f, 0.0f, 0.0f);
+    for (int i = -GRID_SIZE; i <= GRID_SIZE; i++) {
+        if (i != 0) {
+            ss.str("");
+            ss << i;
+            renderText(i * SCALE - 5, -15, ss.str().c_str());
+        }
+    }
+    renderText(GRID_SIZE * SCALE - 20, -30, "X (cm)");
+
+    // Label Y-axis
+    glColor3f(0.0f, 1.0f, 0.0f);
+    for (int i = -GRID_SIZE; i <= GRID_SIZE; i++) {
+        if (i != 0) {
+            ss.str("");
+            ss << i;
+            renderText(-20, i * SCALE - 5, ss.str().c_str());
+        }
+    }
+    renderText(-30, GRID_SIZE * SCALE - 20, "Y (cm)");
+
+    // Origin label
+    glColor3f(1.0f, 1.0f, 1.0f);
+    renderText(-20, -20, "O");
+}
+
+void drawCircleInfo() //labelling circle
+{
+    std::stringstream ss;
+    glColor3f(1.0f, 1.0f, 0.0f);
+
+    // Display circle information
+    ss << "Circle: Center (" << CENTER_X_CM << ", " << CENTER_Y_CM << "), Radius = " << RADIUS_CM << " cm";
+    renderText(-GRID_SIZE * SCALE + 20, -GRID_SIZE * SCALE + 20, ss.str().c_str());
+
+    // Draw a line showing the radius
+    glBegin(GL_LINES);
+    glVertex2f(CENTER_X_CM * SCALE, CENTER_Y_CM * SCALE);
+    glVertex2f((CENTER_X_CM + RADIUS_CM) * SCALE, CENTER_Y_CM * SCALE);
+    glEnd();
+
+    // Label the radius
+    glColor3f(1.0f, 1.0f, 0.0f);
+    renderText((CENTER_X_CM + RADIUS_CM / 2) * SCALE - 15, CENTER_Y_CM * SCALE + 15, "Radius");
+}
+
+void display()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    drawGrid();
+
+    drawAxes();
+
+    labelAxes();
+
+    // Draw the circle using Midpoint algorithm
+    glPointSize(3.0f);
+    glBegin(GL_POINTS);
+    glColor3f(0.0f, 0.8f, 1.0f);  // Light blue circle
+    plotCirclePixels(RADIUS_CM);
+    glEnd();
+
+    // Draw center point
+    glPointSize(7.0f);
+    glBegin(GL_POINTS);
+    glColor3f(1.0f, 1.0f, 0.0f);  // Yellow center
+    glVertex2f(CENTER_X_CM * SCALE, CENTER_Y_CM * SCALE);
+    glEnd();
+    glPointSize(1.0f);
+
+
+    drawCircleInfo();
+
+    glutSwapBuffers();
+}
+
+void reshape(int width, int height)
+{
+    glViewport(0, 0, width, height);
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    gluOrtho2D(-width / 2, width / 2, -height / 2, height / 2);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+int main(int argc, char** argv)
+{
+    glutInit(&argc, argv);
+    glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGB);
+    glutInitWindowSize(WINDOW_WIDTH, WINDOW_HEIGHT);
+    glutCreateWindow("Midpoint Circle Drawing");
+
+    glClearColor(0.0f, 0.0f, 0.1f, 1.0f);
+    glutDisplayFunc(display);
+    glutReshapeFunc(reshape);
+
+    glutMainLoop();
+    return 0;
+}
